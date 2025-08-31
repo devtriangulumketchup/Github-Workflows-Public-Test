@@ -1,0 +1,43 @@
+name: Public Release
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *" # 7:00 AM UTC
+
+jobs:
+  build:
+    name: Public Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private repository
+        uses: actions/checkout@v4
+        with:
+          repository: devtriangulumketchup/Github-Workflows-Private-Test
+          path: code-private
+      - name: Checkout public repository
+        uses: actions/checkout@v4
+        with:
+          repository: devtriangulumketchup/Github-Workflows-Public-Test
+          path: code-public
+      - name: Configure user
+        run: |
+          git config --global user.email "stickbugspam@gmail.com"
+          git config --global user.name "Stick-Bot"
+      - name: Copy files to public
+        run: |
+          rm code-private/README.md
+          mv code-private/README-public.md code-private/README.md
+          rsync -av --delete code-private/ code-public --exclude .git
+      - name: Create public commit
+        working-directory: code-public
+        run: |
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "Publish on `TZ=":America/Los_Angeles" date +"%D at %I:%M%p %Z"`" -m "Daily scheduled release"
+      - name: Push public commit
+        working-directory: code-public
+        env:
+          GITHUB_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          git config --unset-all http.https://github.com/.extraheader
+          git push --set-upstream https://devtriangulumketchup:$GITHUB_TOKEN@github.com/devtriangulumketchup/Github-Workflows-Public-Test main
